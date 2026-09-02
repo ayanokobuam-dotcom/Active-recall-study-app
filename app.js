@@ -1105,6 +1105,14 @@
       escapeHtml(section.content) +
       "</p>" +
       "</div>" +
+      '<div class="lesson-nav-row">' +
+      (index > 0
+        ? '<a class="btn btn-ghost" href="#/lesson/' + lessonId + "/section/" + sections[index - 1].id + '">&lsaquo; Previous</a>'
+        : '<span></span>') +
+      (index < sections.length - 1
+        ? '<a class="btn btn-ghost" href="#/lesson/' + lessonId + "/section/" + sections[index + 1].id + '">Next &rsaquo;</a>'
+        : '<span></span>') +
+      "</div>" +
       '<button type="button" class="btn btn-primary btn-block" id="finishReadingBtn">Finish Reading</button>' +
       "</div>";
 
