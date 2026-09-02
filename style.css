@@ -148,8 +148,11 @@ a{color:inherit;}
   font-weight:700;
   font-size:19px;
   letter-spacing:0.01em;
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
 }
-.app-brand-mark{color:var(--accent);}
+.app-logo{width:24px;height:24px;flex:none;display:block;}
 
 .app-nav{
   display:flex;
@@ -360,6 +363,74 @@ a{color:inherit;}
 .pick-row-title{font-weight:700;font-size:var(--fs-body);}
 .pick-row-sub{color:var(--muted);font-size:var(--fs-small);margin-top:3px;}
 .pick-row-chevron{color:var(--muted-2);flex:none;}
+
+.pick-row-wrap{display:flex;align-items:stretch;gap:8px;}
+.pick-row-wrap .pick-row{flex:1;}
+.pick-row-edit{align-self:center;flex:none;}
+
+/* page title + primary action, side by side */
+.page-header-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  flex-wrap:wrap;
+}
+.page-header-row .page-title{margin:0;}
+
+/* ---------------------------------------------------------------------- */
+/* Form fields — used by the "add your own" forms and modals             */
+/* ---------------------------------------------------------------------- */
+
+.field{display:flex;flex-direction:column;gap:6px;}
+.field span{font-size:var(--fs-small);font-weight:700;color:var(--muted);}
+.field input,
+.field textarea{
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  background:var(--surface);
+  padding:11px 14px;
+  font-family:var(--font-th);
+  font-size:var(--fs-body);
+  color:var(--foreground);
+  outline:none;
+}
+.field input:focus,
+.field textarea:focus{border-color:var(--accent);}
+.field textarea{resize:vertical;line-height:1.7;}
+
+/* ---------------------------------------------------------------------- */
+/* Modal                                                                   */
+/* ---------------------------------------------------------------------- */
+
+.modal-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(27,26,23,0.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  z-index:60;
+  opacity:0;
+  transition:opacity .15s ease;
+}
+.modal-overlay.visible{opacity:1;}
+.modal-card{
+  width:100%;
+  max-width:440px;
+  max-height:calc(100vh - 40px);
+  overflow-y:auto;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-md);
+  padding:24px;
+  transform:translateY(8px);
+  transition:transform .15s ease;
+}
+.modal-overlay.visible .modal-card{transform:translateY(0);}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px;}
 
 /* ---------------------------------------------------------------------- */
 /* Home                                                                    */

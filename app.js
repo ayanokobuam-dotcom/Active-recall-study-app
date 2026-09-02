@@ -49,12 +49,28 @@
     chevron: '<path d="m9 5 7 7-7 7"/>',
     close: '<path d="M6 6l12 12M18 6 6 18"/>',
     back: '<path d="m11 5-7 7 7 7"/><path d="M4 12h16"/>',
-    theme: '<path d="M12 4v1M12 19v1M4 12H3M21 12h-1M6.3 6.3l-.7-.7M18.4 18.4l-.7-.7M6.3 17.7l-.7.7M18.4 5.6l-.7.7"/><circle cx="12" cy="12" r="4.5"/>'
+    theme: '<path d="M12 4v1M12 19v1M4 12H3M21 12h-1M6.3 6.3l-.7-.7M18.4 18.4l-.7-.7M6.3 17.7l-.7.7M18.4 5.6l-.7.7"/><circle cx="12" cy="12" r="4.5"/>',
+    edit: '<path d="M4 20l1-4L15.5 5.5a1.7 1.7 0 0 1 2.4 0l.6.6a1.7 1.7 0 0 1 0 2.4L8 19l-4 1z"/><path d="M14 7l3 3"/>'
   };
 
   function icon(name) {
     return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + "</svg>";
   }
+
+  /* App logo mark: a minimal faceted obsidian shard, matches favicon.svg */
+  var LOGO_MARK_SVG =
+    '<svg class="app-logo" viewBox="0 0 128 128" aria-hidden="true">' +
+    '<rect x="0" y="0" width="128" height="128" rx="28" fill="#4b6a55"/>' +
+    '<polygon points="64,18 90,46 78,110 64,122 50,110 38,46" fill="#1b1a17"/>' +
+    '<polygon points="64,18 90,46 78,110 64,122 64,64" fill="#000000" opacity="0.18"/>' +
+    '<polygon points="64,18 46,40 56,30" fill="#f4f8f5" opacity="0.22"/>' +
+    '<g stroke="#f4f8f5" stroke-width="1.4" stroke-linecap="round" opacity="0.28">' +
+    '<line x1="64" y1="18" x2="64" y2="122"/>' +
+    '<line x1="38" y1="46" x2="64" y2="70"/>' +
+    '<line x1="90" y1="46" x2="64" y2="70"/>' +
+    '<line x1="50" y1="110" x2="64" y2="70"/>' +
+    '<line x1="78" y1="110" x2="64" y2="70"/>' +
+    "</g></svg>";
 
   function toast(message) {
     var node = document.createElement("div");
@@ -70,6 +86,116 @@
         node.remove();
       }, 250);
     }, 1800);
+  }
+
+  /* ----------------------------------------------------------------- */
+  /* Modal — small backdrop + card, used by the "add your own" forms    */
+  /* ----------------------------------------------------------------- */
+
+  function openModal(innerHtml, onMount) {
+    var overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = '<div class="modal-card" role="dialog" aria-modal="true">' + innerHtml + "</div>";
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function () {
+      overlay.classList.add("visible");
+    });
+
+    function close() {
+      overlay.classList.remove("visible");
+      document.removeEventListener("keydown", onKeydown);
+      setTimeout(function () {
+        overlay.remove();
+      }, 150);
+    }
+    function onKeydown(e) {
+      if (e.key === "Escape") close();
+    }
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener("keydown", onKeydown);
+
+    if (onMount) onMount(overlay, close);
+    var firstField = overlay.querySelector("input, textarea");
+    if (firstField) firstField.focus();
+    return { close: close, node: overlay };
+  }
+
+  function openAddSubjectModal() {
+    openModal(
+      '<h2 class="section-title" style="margin-bottom:16px">Add Subject</h2>' +
+        '<form id="modalForm" class="stack-sm">' +
+        '<label class="field"><span>Subject name</span><input type="text" id="f_name" placeholder="e.g. History" required></label>' +
+        '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-ghost" id="modalCancel">Cancel</button>' +
+        '<button type="submit" class="btn btn-primary">Add Subject</button>' +
+        "</div></form>",
+      function (overlay, close) {
+        overlay.querySelector("#modalCancel").addEventListener("click", close);
+        overlay.querySelector("#modalForm").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var name = overlay.querySelector("#f_name").value.trim();
+          if (!name) return;
+          var subject = Data.addSubject(name);
+          close();
+          toast("Subject added");
+          navigate("#/learn/subject/" + subject.id);
+        });
+      }
+    );
+  }
+
+  function openAddTopicModal(subjectId) {
+    openModal(
+      '<h2 class="section-title" style="margin-bottom:16px">Add Topic</h2>' +
+        '<form id="modalForm" class="stack-sm">' +
+        '<label class="field"><span>Topic name</span><input type="text" id="f_name" placeholder="e.g. Thermodynamics" required></label>' +
+        '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-ghost" id="modalCancel">Cancel</button>' +
+        '<button type="submit" class="btn btn-primary">Add Topic</button>' +
+        "</div></form>",
+      function (overlay, close) {
+        overlay.querySelector("#modalCancel").addEventListener("click", close);
+        overlay.querySelector("#modalForm").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var name = overlay.querySelector("#f_name").value.trim();
+          if (!name) return;
+          var topic = Data.addTopic(subjectId, name);
+          close();
+          toast("Topic added");
+          navigate("#/learn/topic/" + topic.id);
+        });
+      }
+    );
+  }
+
+  function openAddLessonModal(topicId) {
+    openModal(
+      '<h2 class="section-title" style="margin-bottom:16px">Add Lesson</h2>' +
+        '<form id="modalForm" class="stack-sm">' +
+        '<label class="field"><span>Lesson title</span><input type="text" id="f_title" placeholder="e.g. Photosynthesis" required></label>' +
+        '<label class="field"><span>Short description</span><input type="text" id="f_desc" placeholder="One line about what this lesson covers"></label>' +
+        '<label class="field"><span>Estimated minutes</span><input type="number" id="f_minutes" min="1" max="120" value="10"></label>' +
+        '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-ghost" id="modalCancel">Cancel</button>' +
+        '<button type="submit" class="btn btn-primary">Add Lesson</button>' +
+        "</div></form>",
+      function (overlay, close) {
+        overlay.querySelector("#modalCancel").addEventListener("click", close);
+        overlay.querySelector("#modalForm").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var title = overlay.querySelector("#f_title").value.trim();
+          if (!title) return;
+          var description = overlay.querySelector("#f_desc").value.trim();
+          var minutes = parseInt(overlay.querySelector("#f_minutes").value, 10) || 5;
+          var lesson = Data.addLesson(topicId, title, description, minutes);
+          close();
+          toast("Lesson added — now write its content");
+          navigate("#/learn/lesson/" + lesson.id + "/edit");
+        });
+      }
+    );
   }
 
   /* ----------------------------------------------------------------- */
@@ -113,6 +239,7 @@
     if (parts[0] === "learn" && parts.length === 1) return Screens.subjects();
     if (parts[0] === "learn" && parts[1] === "subject" && parts[2]) return Screens.topics(parts[2]);
     if (parts[0] === "learn" && parts[1] === "topic" && parts[2]) return Screens.lessons(parts[2]);
+    if (parts[0] === "learn" && parts[1] === "lesson" && parts[2] && parts[3] === "edit") return Screens.lessonEditor(parts[2]);
     if (parts[0] === "lesson" && parts[2] === "section" && parts[3]) return Screens.lessonSection(parts[1], parts[3]);
     if (parts[0] === "ready" && parts[1] && parts[2]) return Screens.ready(parts[1], parts[2]);
     if (parts[0] === "recall" && parts[1] && parts[2]) return Screens.recall(parts[1], parts[2]);
@@ -159,7 +286,7 @@
     return (
       '<div class="app-shell">' +
       '<header class="app-header">' +
-      '<div class="app-header-left"><span class="app-brand"><span class="app-brand-mark">&bull;</span> Active Recall</span></div>' +
+      '<div class="app-header-left"><span class="app-brand">' + LOGO_MARK_SVG + " Active Recall</span></div>" +
       '<nav class="app-nav" aria-label="Primary">' +
       navItem("home", "Home", "home", "#/home") +
       navItem("learn", "Learn", "learn", "#/learn") +
@@ -440,10 +567,14 @@
       title: "Learn",
       html:
         '<div class="stack">' +
-        '<h1 class="page-title">Learn</h1>' +
+        '<div class="page-header-row"><h1 class="page-title">Learn</h1>' +
+        '<button type="button" class="btn btn-primary btn-sm" id="addSubjectBtn">+ Add Subject</button></div>' +
         '<div class="pick-list">' +
-        (rows || '<p class="empty-note">No subjects yet.</p>') +
-        "</div></div>"
+        (rows || '<p class="empty-note">No subjects yet. Add your first one to get started.</p>') +
+        "</div></div>",
+      mount: function () {
+        document.getElementById("addSubjectBtn").addEventListener("click", openAddSubjectModal);
+      }
     };
   };
 
@@ -477,12 +608,17 @@
         '<div class="crumb"><a href="#/learn">Learn</a><span>&rsaquo;</span><strong>' +
         escapeHtml(subject ? subject.name : "") +
         "</strong></div>" +
-        '<h1 class="page-title">' +
+        '<div class="page-header-row"><h1 class="page-title">' +
         escapeHtml(subject ? subject.name : "") +
-        "</h1>" +
+        '</h1><button type="button" class="btn btn-primary btn-sm" id="addTopicBtn">+ Add Topic</button></div>' +
         '<div class="pick-list">' +
         (rows || '<p class="empty-note">No topics yet.</p>') +
-        "</div></div>"
+        "</div></div>",
+      mount: function () {
+        document.getElementById("addTopicBtn").addEventListener("click", function () {
+          openAddTopicModal(subjectId);
+        });
+      }
     };
   };
 
@@ -498,25 +634,33 @@
         var next = sections.find(function (s) {
           return read.indexOf(s.id) === -1;
         }) || sections[0];
+        var isDraft = sections.length === 0;
+        var readHref = isDraft ? "#/learn/lesson/" + lesson.id + "/edit" : "#/lesson/" + lesson.id + "/section/" + next.id;
         return (
-          '<a class="pick-row" href="#/lesson/' +
-          lesson.id +
-          "/section/" +
-          (next ? next.id : "") +
+          '<div class="pick-row-wrap">' +
+          '<a class="pick-row" href="' +
+          readHref +
           '">' +
           '<div><div class="pick-row-title">' +
           escapeHtml(lesson.title) +
           "</div>" +
           '<div class="pick-row-sub">' +
-          escapeHtml(lesson.description) +
-          " &middot; " +
-          lesson.estimated_minutes +
-          " min" +
-          (read.length ? " &middot; " + pct + "% complete" : "") +
+          (isDraft
+            ? "Draft &mdash; no content yet, add a section to start"
+            : escapeHtml(lesson.description) +
+              " &middot; " +
+              lesson.estimated_minutes +
+              " min" +
+              (read.length ? " &middot; " + pct + "% complete" : "")) +
           "</div></div>" +
           '<span class="pick-row-chevron">' +
           icon("chevron") +
-          "</span></a>"
+          "</span></a>" +
+          '<a class="icon-btn pick-row-edit" href="#/learn/lesson/' +
+          lesson.id +
+          '/edit" title="Edit content" aria-label="Edit content">' +
+          icon("edit") +
+          "</a></div>"
         );
       })
       .join("");
@@ -532,12 +676,127 @@
         "</a><span>&rsaquo;</span><strong>" +
         escapeHtml(topic ? topic.name : "") +
         "</strong></div>" +
-        '<h1 class="page-title">' +
+        '<div class="page-header-row"><h1 class="page-title">' +
         escapeHtml(topic ? topic.name : "") +
-        "</h1>" +
+        '</h1><button type="button" class="btn btn-primary btn-sm" id="addLessonBtn">+ Add Lesson</button></div>' +
         '<div class="pick-list">' +
         (rows || '<p class="empty-note">No lessons yet.</p>') +
-        "</div></div>"
+        "</div></div>",
+      mount: function () {
+        document.getElementById("addLessonBtn").addEventListener("click", function () {
+          openAddLessonModal(topicId);
+        });
+      }
+    };
+  };
+
+  /* Lesson content editor: where "add your own lesson" content gets written.
+     Lists existing sections (title + a preview, edit in place) and a form
+     to append a new one — the same lesson_sections table the reading flow
+     reads from, so a saved section is immediately readable. */
+  Screens.lessonEditor = function (lessonId) {
+    var ctx = Data.getLessonContext(lessonId);
+    if (!ctx || !ctx.lesson) {
+      navigate("#/learn");
+      return { title: "Edit Lesson", html: "" };
+    }
+    var lesson = ctx.lesson;
+    var sections = Data.getLessonSections(lessonId);
+
+    function sectionCardHtml(section, index) {
+      return (
+        '<div class="surface-card stack-sm" data-section-id="' +
+        section.id +
+        '">' +
+        '<div class="review-card-head"><span class="eyebrow">Section ' +
+        (index + 1) +
+        '</span><button type="button" class="btn btn-ghost btn-sm edit-section-btn" data-section-id="' +
+        section.id +
+        '">Edit</button></div>' +
+        '<div class="pick-row-title">' +
+        escapeHtml(section.title) +
+        "</div>" +
+        '<p class="text-small text-muted" style="white-space:pre-wrap">' +
+        escapeHtml(section.content.length > 220 ? section.content.slice(0, 220) + "…" : section.content) +
+        "</p></div>"
+      );
+    }
+
+    var body =
+      '<div class="stack">' +
+      '<div class="crumb"><a href="#/learn">Learn</a><span>&rsaquo;</span>' +
+      '<a href="#/learn/topic/' +
+      lesson.topic_id +
+      '">' +
+      escapeHtml(ctx.topic ? ctx.topic.name : "") +
+      "</a><span>&rsaquo;</span><strong>" +
+      escapeHtml(lesson.title) +
+      "</strong></div>" +
+      '<h1 class="page-title">' +
+      escapeHtml(lesson.title) +
+      "</h1>" +
+      '<p class="text-muted">Write the sections readers will study, hide, then recall from memory.</p>' +
+      '<div class="stack-sm" id="sectionsList">' +
+      (sections.map(sectionCardHtml).join("") || '<p class="empty-note">No sections yet &mdash; add the first one below.</p>') +
+      "</div>" +
+      '<div class="surface-card stack-sm">' +
+      '<h2 class="section-title">Add Section</h2>' +
+      '<form id="addSectionForm" class="stack-sm">' +
+      '<label class="field"><span>Section title</span><input type="text" id="f_sectionTitle" placeholder="e.g. Introduction" required></label>' +
+      '<label class="field"><span>Content</span><textarea id="f_sectionContent" class="recall-textarea" style="min-height:160px" placeholder="Write the material readers will read, then try to recall from memory…" required></textarea></label>' +
+      '<button type="submit" class="btn btn-primary">Add Section</button>' +
+      "</form></div>" +
+      '<a class="btn btn-ghost" href="#/learn/topic/' +
+      lesson.topic_id +
+      '">Done &mdash; back to lessons</a>' +
+      "</div>";
+
+    return {
+      title: "Edit " + lesson.title,
+      html: body,
+      mount: function () {
+        document.getElementById("addSectionForm").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var title = document.getElementById("f_sectionTitle").value.trim();
+          var content = document.getElementById("f_sectionContent").value.trim();
+          if (!title || !content) return;
+          Data.addSection(lessonId, title, content);
+          toast("Section added");
+          navigate("#/learn/lesson/" + lessonId + "/edit");
+        });
+
+        root.querySelectorAll(".edit-section-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var card = btn.closest("[data-section-id]");
+            var section = Data.Table.get("lesson_sections", btn.dataset.sectionId);
+            if (!section) return;
+            card.innerHTML =
+              '<form class="section-edit-form stack-sm">' +
+              '<label class="field"><span>Section title</span><input type="text" class="edit_title" value="' +
+              escapeHtml(section.title) +
+              '" required></label>' +
+              '<label class="field"><span>Content</span><textarea class="edit_content recall-textarea" style="min-height:160px" required>' +
+              escapeHtml(section.content) +
+              "</textarea></label>" +
+              '<div class="modal-actions">' +
+              '<button type="button" class="btn btn-ghost cancel-edit-btn">Cancel</button>' +
+              '<button type="submit" class="btn btn-primary">Save</button>' +
+              "</div></form>";
+            card.querySelector(".cancel-edit-btn").addEventListener("click", function () {
+              navigate("#/learn/lesson/" + lessonId + "/edit");
+            });
+            card.querySelector("form").addEventListener("submit", function (e) {
+              e.preventDefault();
+              var newTitle = card.querySelector(".edit_title").value.trim();
+              var newContent = card.querySelector(".edit_content").value.trim();
+              if (!newTitle || !newContent) return;
+              Data.updateSection(section.id, newTitle, newContent);
+              toast("Section saved");
+              navigate("#/learn/lesson/" + lessonId + "/edit");
+            });
+          });
+        });
+      }
     };
   };
 

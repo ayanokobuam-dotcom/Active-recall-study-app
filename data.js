@@ -305,6 +305,50 @@
   }
 
   /* ----------------------------------------------------------------- */
+  /* User-authored content — lets someone grow the library beyond the   */
+  /* seed set: their own subjects, topics, lessons and section text.    */
+  /* Same tables as the seed content, just inserted later by the user.  */
+  /* ----------------------------------------------------------------- */
+
+  function addSubject(name) {
+    return Table.insert("subjects", { id: uid("subj"), name: name, created_at: nowIso() });
+  }
+
+  function addTopic(subjectId, name) {
+    return Table.insert("topics", { id: uid("topic"), subject_id: subjectId, name: name, created_at: nowIso() });
+  }
+
+  function addLesson(topicId, title, description, estimatedMinutes) {
+    return Table.insert("lessons", {
+      id: uid("lesson"),
+      topic_id: topicId,
+      subtopic_id: null,
+      title: title,
+      description: description || "",
+      estimated_minutes: estimatedMinutes || 5,
+      created_at: nowIso(),
+      updated_at: nowIso()
+    });
+  }
+
+  function addSection(lessonId, title, content) {
+    var existing = getLessonSections(lessonId);
+    var order = existing.length ? existing[existing.length - 1].section_order + 1 : 1;
+    return Table.insert("lesson_sections", {
+      id: uid("section"),
+      lesson_id: lessonId,
+      section_order: order,
+      title: title,
+      content: content,
+      created_at: nowIso()
+    });
+  }
+
+  function updateSection(sectionId, title, content) {
+    return Table.update("lesson_sections", sectionId, { title: title, content: content });
+  }
+
+  /* ----------------------------------------------------------------- */
   /* Query helpers used across screens                                  */
   /* ----------------------------------------------------------------- */
 
@@ -510,6 +554,11 @@
     LOCAL_USER_ID: LOCAL_USER_ID,
     seedIfNeeded: seedIfNeeded,
     Table: Table,
+    addSubject: addSubject,
+    addTopic: addTopic,
+    addLesson: addLesson,
+    addSection: addSection,
+    updateSection: updateSection,
     getLessonSections: getLessonSections,
     getLessonsForTopic: getLessonsForTopic,
     getTopicsForSubject: getTopicsForSubject,
