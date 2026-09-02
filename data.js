@@ -349,6 +349,55 @@
   }
 
   /* ----------------------------------------------------------------- */
+  /* Reminder mirror — a service worker can't read localStorage, so a     */
+  /* periodic background sync (see sw.js) needs its own copy of just the  */
+  /* fields notesDueForReview() looks at. Kept in IndexedDB, refreshed    */
+  /* whenever a recall gets rated. See reminders-shared.js for the exact  */
+  /* same due-heuristic used on both sides.                               */
+  /* ----------------------------------------------------------------- */
+
+  function openReminderDb() {
+    return new Promise(function (resolve) {
+      var shared = global.ReminderShared;
+      if (!shared || !global.indexedDB) {
+        resolve(null);
+        return;
+      }
+      var req = global.indexedDB.open(shared.DB_NAME, shared.DB_VERSION);
+      req.onupgradeneeded = function () {
+        if (!req.result.objectStoreNames.contains(shared.STORE)) {
+          req.result.createObjectStore(shared.STORE, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = function () {
+        resolve(req.result);
+      };
+      req.onerror = function () {
+        resolve(null);
+      };
+    });
+  }
+
+  function syncReminderMirror() {
+    var shared = global.ReminderShared;
+    if (!shared) return;
+    openReminderDb().then(function (db) {
+      if (!db) return;
+      var notes = Table.list("recall_notes", function (n) {
+        return typeof n.self_rating === "number";
+      }).map(function (n) {
+        return { id: n.id, self_rating: n.self_rating, updated_at: n.updated_at };
+      });
+      var tx = db.transaction(shared.STORE, "readwrite");
+      var store = tx.objectStore(shared.STORE);
+      store.clear();
+      notes.forEach(function (n) {
+        store.put(n);
+      });
+    });
+  }
+
+  /* ----------------------------------------------------------------- */
   /* Query helpers used across screens                                  */
   /* ----------------------------------------------------------------- */
 
@@ -438,6 +487,7 @@
     if (sessionId) {
       Table.update("active_recall_sessions", sessionId, { self_rating: rating });
     }
+    syncReminderMirror();
     return note;
   }
 
@@ -559,6 +609,7 @@
     addLesson: addLesson,
     addSection: addSection,
     updateSection: updateSection,
+    syncReminderMirror: syncReminderMirror,
     getLessonSections: getLessonSections,
     getLessonsForTopic: getLessonsForTopic,
     getTopicsForSubject: getTopicsForSubject,

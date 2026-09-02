@@ -15,6 +15,7 @@
 
   var Data = window.RecallData;
   Data.seedIfNeeded();
+  registerServiceWorker();
 
   var root = document.getElementById("root");
 
@@ -224,6 +225,141 @@
     applyTheme(next);
   }
   applyTheme(currentTheme());
+
+  /* ----------------------------------------------------------------- */
+  /* Review reminders — notifications when installed as a phone app     */
+  /* -------------------------------------------------------------------
+     The web-only mechanism for "notify me later, even if the app/tab is
+     closed" is Periodic Background Sync: Chromium-only (Chrome/Edge on
+     Android + desktop), and it only starts firing once the browser's own
+     engagement heuristics are satisfied — there's no permission prompt
+     for it, it just quietly activates after the installed app gets some
+     regular use. Other browsers (notably Safari/iOS) don't support it at
+     all, so there the "Turn on Reminders" toggle still requests
+     Notification permission (useful once real push arrives later) but
+     the honest fallback is: open the app and check Review.
+     ----------------------------------------------------------------- */
+
+  var REMINDERS_KEY = "activeRecall.remindersEnabled";
+  var REMINDER_SYNC_TAG = "review-reminder";
+  var swRegistration = null;
+
+  function remindersEnabled() {
+    try {
+      return localStorage.getItem(REMINDERS_KEY) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function notificationsSupported() {
+    return "Notification" in window && "serviceWorker" in navigator;
+  }
+
+  function periodicSyncSupported() {
+    return !!(swRegistration && "periodicSync" in swRegistration);
+  }
+
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker
+      .register("sw.js")
+      .catch(function () {})
+      .then(function () {
+        return navigator.serviceWorker.ready;
+      })
+      .then(function (reg) {
+        swRegistration = reg;
+        Data.syncReminderMirror();
+        var rerenderNeeded = CURRENT_NAV === "home";
+        var afterSyncCheck = remindersEnabled() && Notification.permission === "granted" ? tryRegisterPeriodicSync() : Promise.resolve();
+        afterSyncCheck.then(function () {
+          if (rerenderNeeded) render();
+        });
+      })
+      .catch(function () {});
+  }
+
+  function tryRegisterPeriodicSync() {
+    if (!periodicSyncSupported() || !navigator.permissions) return Promise.resolve(false);
+    return navigator.permissions
+      .query({ name: "periodic-background-sync" })
+      .then(function (status) {
+        if (status.state !== "granted") return false;
+        return swRegistration.periodicSync
+          .register(REMINDER_SYNC_TAG, { minInterval: 12 * 60 * 60 * 1000 })
+          .then(function () {
+            return true;
+          });
+      })
+      .catch(function () {
+        return false;
+      });
+  }
+
+  function enableReminders() {
+    if (!notificationsSupported()) {
+      toast("Notifications aren't supported in this browser");
+      return;
+    }
+    Notification.requestPermission().then(function (permission) {
+      if (permission !== "granted") {
+        toast("Notification permission was not granted");
+        render();
+        return;
+      }
+      try {
+        localStorage.setItem(REMINDERS_KEY, "1");
+      } catch (e) {}
+      Data.syncReminderMirror();
+      tryRegisterPeriodicSync().then(function () {
+        toast("Reminders turned on");
+        render();
+      });
+    });
+  }
+
+  function disableReminders() {
+    try {
+      localStorage.setItem(REMINDERS_KEY, "0");
+    } catch (e) {}
+    if (periodicSyncSupported()) {
+      swRegistration.periodicSync.unregister(REMINDER_SYNC_TAG).catch(function () {});
+    }
+    toast("Reminders turned off");
+    render();
+  }
+
+  function RemindersCard() {
+    if (!notificationsSupported()) return "";
+    var permission = Notification.permission;
+    var enabled = remindersEnabled() && permission === "granted";
+    var html = '<div class="surface-card stack-sm"><h2 class="section-title">Study Reminders</h2>';
+    if (enabled) {
+      html +=
+        '<p class="text-muted">Reminders are on — expect a nudge when a recall is due for review.</p>';
+      if (!periodicSyncSupported()) {
+        html +=
+          '<p class="text-small text-muted">Background reminders aren’t supported in this browser yet — open the app now and then to catch up on Review.</p>';
+      }
+      html += '<button type="button" class="btn btn-ghost btn-sm" id="disableRemindersBtn">Turn off</button>';
+    } else if (permission === "denied") {
+      html += '<p class="text-muted">Notifications are blocked for this app in your browser settings.</p>';
+    } else {
+      html +=
+        '<p class="text-muted">Get nudged to come back and review, spaced out the same way the app schedules recalls.</p>' +
+        '<button type="button" class="btn btn-primary btn-sm" id="enableRemindersBtn">Turn on Reminders</button>';
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function wireRemindersCard(container) {
+    var enableBtn = container.querySelector("#enableRemindersBtn");
+    if (enableBtn) enableBtn.addEventListener("click", enableReminders);
+    var disableBtn = container.querySelector("#disableRemindersBtn");
+    if (disableBtn) disableBtn.addEventListener("click", disableReminders);
+  }
 
   /* ----------------------------------------------------------------- */
   /* Router                                                             */
@@ -480,6 +616,8 @@
     }
     body += "</div>";
 
+    body += RemindersCard();
+
     if (continueRow || startRow) {
       var row = continueRow || startRow;
       var ctx = Data.getLessonContext(row.lesson.id);
@@ -537,6 +675,7 @@
           var target = next || row.sections[0];
           link.href = "#/lesson/" + row.lesson.id + "/section/" + target.id;
         }
+        wireRemindersCard(root);
       }
     };
   };

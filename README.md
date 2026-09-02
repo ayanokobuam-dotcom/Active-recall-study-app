@@ -31,13 +31,59 @@ python3 -m http.server 8080
   Physics with a full Cell Organelles lesson) is inserted once on first
   load and never overwrites user data.
 - `app.js` — a small hash router (`#/home`, `#/learn`, `#/lesson/:id/section/:id`,
-  `#/recall/:id/:id`, `#/compare/:noteId`, `#/history`, `#/progress`, …) and
-  the screens/components themselves (`LessonViewer`, `RecallEditor`,
-  `RecallComparison`+`RecallRating`, `ReviewCard`, `ProgressIndicator`,
-  `SubjectSelector`/`TopicSelector`). There is no UI framework in this
-  repo, so "components" are render functions returning HTML strings with
-  a `mount()` callback that wires up listeners — composable, but not a
-  real component runtime.
+  `#/recall/:id/:id`, `#/compare/:noteId`, `#/history`, `#/progress`,
+  `#/learn/lesson/:id/edit`, …) and the screens/components themselves
+  (`LessonViewer`, `RecallEditor`, `RecallComparison`+`RecallRating`,
+  `ReviewCard`, `ProgressIndicator`, `SubjectSelector`/`TopicSelector`).
+  There is no UI framework in this repo, so "components" are render
+  functions returning HTML strings with a `mount()` callback that wires
+  up listeners — composable, but not a real component runtime.
+- `sw.js` + `reminders-shared.js` — the service worker and the small
+  shared module (due-review heuristic + IndexedDB constants) it loads via
+  `importScripts`, used only by the reminders feature below.
+
+## Adding your own content
+
+The seed content (Biology/Chemistry/Physics) is a starting point, not a
+ceiling — "+ Add Subject" on the Learn screen, then "+ Add Topic" and
+"+ Add Lesson" one level down, create real rows in the same tables the
+seed data uses. A new lesson opens straight into a content editor
+(`#/learn/lesson/:id/edit`) for writing its sections; the pencil icon on
+any lesson row in the Lessons list returns to that editor later. Nothing
+distinguishes "seed" rows from "user" rows in the schema — both are just
+`lessons`/`lesson_sections` records — so this doesn't yet support
+editing or deleting the seed lessons themselves, only adding new ones and
+editing what you add.
+
+## Study reminders (installed-app notifications)
+
+Home has a "Study Reminders" card that requests notification permission
+and, where the browser supports it, registers a **Periodic Background
+Sync** (`review-reminder` tag) so a service worker can notify you about
+due reviews even if the app isn't open. This is the only mechanism for
+"remind me later" available to a static site with no push server — there
+is no backend here to send a real push message.
+
+Two real limits worth knowing:
+
+- **Browser support.** Periodic Background Sync is Chromium-only (Chrome/
+  Edge on Android and desktop). Safari/iOS and Firefox don't implement it,
+  so there "Turn on Reminders" still enables notification permission (in
+  case real push support lands later) but the honest fallback is: open
+  the app and check Review.
+- **No install, no reliable firing.** Even on Chromium, periodic sync only
+  starts firing once the browser's own site-engagement heuristics are
+  satisfied for the *installed* app (added to home screen / "Install
+  app") — there's no permission prompt for this part, and the interval you
+  request is a minimum, not a guarantee.
+
+Because a service worker can't read the page's `localStorage`, `data.js`
+mirrors just the fields the due-review check needs (`id`, `self_rating`,
+`updated_at`) into a small IndexedDB store (`Data.syncReminderMirror()`,
+called whenever a recall gets rated). `sw.js` reads that mirror on
+`periodicsync` and calls `registration.showNotification()` using the
+exact same heuristic as `Data.notesDueForReview()` — both pull it from
+`reminders-shared.js` so the two can't drift apart.
 
 ## What's implemented vs. deferred
 
