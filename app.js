@@ -209,6 +209,75 @@
   }
 
   /* ----------------------------------------------------------------- */
+  /* Section images — any number, attached per section. Rendered async  */
+  /* because the actual bytes live in IndexedDB (see data.js); the      */
+  /* gallery mounts empty thumbnails first, then fills each one in as    */
+  /* its object URL resolves.                                           */
+  /* ----------------------------------------------------------------- */
+
+  function openImageLightbox(url) {
+    openModal('<img class="lightbox-img" src="' + url + '" alt="">', function () {});
+  }
+
+  function renderSectionImages(container, sectionId, editable) {
+    if (!container) return;
+    var ids = Data.getSectionImageIds(sectionId);
+    container.innerHTML = ids
+      .map(function (id) {
+        return (
+          '<div class="image-thumb" data-image-id="' +
+          id +
+          '">' +
+          (editable
+            ? '<button type="button" class="image-thumb-remove" data-image-id="' + id + '" aria-label="Remove image">' + icon("close") + "</button>"
+            : "") +
+          "</div>"
+        );
+      })
+      .join("");
+    ids.forEach(function (id) {
+      Data.getImageObjectUrl(id).then(function (url) {
+        if (!url) return;
+        var thumb = container.querySelector('[data-image-id="' + id + '"]');
+        if (!thumb) return;
+        var img = document.createElement("img");
+        img.src = url;
+        img.alt = "";
+        img.addEventListener("click", function () {
+          openImageLightbox(url);
+        });
+        thumb.insertBefore(img, thumb.firstChild);
+      });
+    });
+    if (editable) {
+      container.querySelectorAll(".image-thumb-remove").forEach(function (btn) {
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          Data.removeImageFromSection(sectionId, btn.dataset.imageId).then(function () {
+            renderSectionImages(container, sectionId, true);
+          });
+        });
+      });
+    }
+  }
+
+  function wireAddImagesInput(input, sectionId, onAdded) {
+    input.addEventListener("change", function () {
+      var files = Array.prototype.slice.call(input.files || []);
+      if (!files.length) return;
+      Promise.all(
+        files.map(function (file) {
+          return Data.addImageToSection(sectionId, file);
+        })
+      ).then(function () {
+        input.value = "";
+        toast(files.length === 1 ? "Image added" : files.length + " images added");
+        onAdded();
+      });
+    });
+  }
+
+  /* ----------------------------------------------------------------- */
   /* Theme toggle (persisted, respects prefers-color-scheme by default) */
   /* ----------------------------------------------------------------- */
 
@@ -944,6 +1013,17 @@
     var lesson = ctx.lesson;
     var sections = Data.getLessonSections(lessonId);
 
+    function sectionBodyHtml(section) {
+      return (
+        '<div class="pick-row-title">' +
+        escapeHtml(section.title) +
+        "</div>" +
+        '<p class="text-small text-muted" style="white-space:pre-wrap">' +
+        escapeHtml(section.content.length > 220 ? section.content.slice(0, 220) + "…" : section.content) +
+        "</p>"
+      );
+    }
+
     function sectionCardHtml(section, index) {
       return (
         '<div class="surface-card stack-sm" data-section-id="' +
@@ -958,12 +1038,17 @@
         '<button type="button" class="btn btn-danger btn-sm delete-section-btn" data-section-id="' +
         section.id +
         '">Delete</button></div></div>' +
-        '<div class="pick-row-title">' +
-        escapeHtml(section.title) +
+        '<div class="section-body">' +
+        sectionBodyHtml(section) +
         "</div>" +
-        '<p class="text-small text-muted" style="white-space:pre-wrap">' +
-        escapeHtml(section.content.length > 220 ? section.content.slice(0, 220) + "…" : section.content) +
-        "</p></div>"
+        '<div class="image-gallery" id="gallery-' +
+        section.id +
+        '"></div>' +
+        '<label class="btn btn-ghost btn-sm file-input-label">+ Add Images' +
+        '<input type="file" accept="image/*" multiple class="add-images-input" data-section-id="' +
+        section.id +
+        '" hidden></label>' +
+        "</div>"
       );
     }
 
@@ -1033,9 +1118,10 @@
         root.querySelectorAll(".edit-section-btn").forEach(function (btn) {
           btn.addEventListener("click", function () {
             var card = btn.closest(".surface-card");
+            var body = card.querySelector(".section-body");
             var section = Data.Table.get("lesson_sections", btn.dataset.sectionId);
             if (!section) return;
-            card.innerHTML =
+            body.innerHTML =
               '<form class="section-edit-form stack-sm">' +
               '<label class="field"><span>Section title</span><input type="text" class="edit_title" value="' +
               escapeHtml(section.title) +
@@ -1047,18 +1133,28 @@
               '<button type="button" class="btn btn-ghost cancel-edit-btn">Cancel</button>' +
               '<button type="submit" class="btn btn-primary">Save</button>' +
               "</div></form>";
-            card.querySelector(".cancel-edit-btn").addEventListener("click", function () {
-              navigate("#/learn/lesson/" + lessonId + "/edit");
+            body.querySelector(".cancel-edit-btn").addEventListener("click", function () {
+              body.innerHTML = sectionBodyHtml(section);
             });
-            card.querySelector("form").addEventListener("submit", function (e) {
+            body.querySelector("form").addEventListener("submit", function (e) {
               e.preventDefault();
-              var newTitle = card.querySelector(".edit_title").value.trim();
-              var newContent = card.querySelector(".edit_content").value.trim();
+              var newTitle = body.querySelector(".edit_title").value.trim();
+              var newContent = body.querySelector(".edit_content").value.trim();
               if (!newTitle || !newContent) return;
               Data.updateSection(section.id, newTitle, newContent);
               toast("Section saved");
               navigate("#/learn/lesson/" + lessonId + "/edit");
             });
+          });
+        });
+
+        sections.forEach(function (section) {
+          var gallery = document.getElementById("gallery-" + section.id);
+          renderSectionImages(gallery, section.id, true);
+        });
+        root.querySelectorAll(".add-images-input").forEach(function (input) {
+          wireAddImagesInput(input, input.dataset.sectionId, function () {
+            renderSectionImages(document.getElementById("gallery-" + input.dataset.sectionId), input.dataset.sectionId, true);
           });
         });
       }
@@ -1092,6 +1188,9 @@
       '<p class="lesson-section-body">' +
       escapeHtml(section.content) +
       "</p>" +
+      '<div class="image-gallery" id="gallery-' +
+      section.id +
+      '"></div>' +
       "</div>" +
       '<div class="lesson-nav-row">' +
       (index > 0
@@ -1112,6 +1211,7 @@
           Data.markSectionRead(lessonId, section.id);
           navigate("#/ready/" + lessonId + "/" + section.id);
         });
+        renderSectionImages(document.getElementById("gallery-" + section.id), section.id, false);
       }
     };
   };
@@ -1214,7 +1314,9 @@
       '<div class="compare-block"><span class="eyebrow">Original Material</span>' +
       '<p class="compare-text">' +
       escapeHtml(section ? section.content : "") +
-      "</p></div>" +
+      "</p>" +
+      (section ? '<div class="image-gallery" id="gallery-' + section.id + '"></div>' : "") +
+      "</div>" +
       '<hr class="divider">' +
       '<div id="ratingArea">' +
       '<h2 class="section-title" style="margin-bottom:12px">How well did you remember?</h2>' +
@@ -1241,6 +1343,7 @@
       focus: true,
       html: focusShellHtml(crumb, body, "#/home"),
       mount: function () {
+        if (section) renderSectionImages(document.getElementById("gallery-" + section.id), section.id, false);
         var ratingArea = document.getElementById("ratingArea");
         function showSavedState(rating) {
           var nextHref = "#/home";
@@ -1362,7 +1465,9 @@
       '<div class="compare-block"><span class="eyebrow">Original Material</span>' +
       '<p class="compare-text">' +
       escapeHtml(section ? section.content : "") +
-      "</p></div>" +
+      "</p>" +
+      (section ? '<div class="image-gallery" id="gallery-' + section.id + '"></div>' : "") +
+      "</div>" +
       '<button type="button" class="btn btn-primary review-again-btn" data-lesson-id="' +
       note.lesson_id +
       '" data-section-id="' +
@@ -1374,6 +1479,7 @@
       html: body,
       mount: function () {
         wireReviewAgainButtons(root);
+        if (section) renderSectionImages(document.getElementById("gallery-" + section.id), section.id, false);
       }
     };
   };

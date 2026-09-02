@@ -350,12 +350,130 @@
       section_order: order,
       title: title,
       content: content,
+      image_ids: [],
       created_at: nowIso()
     });
   }
 
   function updateSection(sectionId, title, content) {
     return Table.update("lesson_sections", sectionId, { title: title, content: content });
+  }
+
+  /* ----------------------------------------------------------------- */
+  /* Section images — stored as Blobs in IndexedDB, not localStorage.   */
+  /* localStorage is a small string-only budget shared by everything    */
+  /* else in this file; images belong in their own database. A section  */
+  /* only keeps an ordered image_ids array (in image_ids, part of the    */
+  /* normal lesson_sections row) — the bytes live in the "images" store, */
+  /* looked up by id and turned into an object URL for display.         */
+  /* ----------------------------------------------------------------- */
+
+  var IMAGE_DB_NAME = "activeRecallImages";
+  var IMAGE_DB_VERSION = 1;
+  var IMAGE_STORE = "images";
+  var imageUrlCache = {};
+
+  function openImageDb() {
+    return new Promise(function (resolve) {
+      if (!global.indexedDB) {
+        resolve(null);
+        return;
+      }
+      var req = global.indexedDB.open(IMAGE_DB_NAME, IMAGE_DB_VERSION);
+      req.onupgradeneeded = function () {
+        if (!req.result.objectStoreNames.contains(IMAGE_STORE)) {
+          req.result.createObjectStore(IMAGE_STORE, { keyPath: "id" });
+        }
+      };
+      req.onsuccess = function () {
+        resolve(req.result);
+      };
+      req.onerror = function () {
+        resolve(null);
+      };
+    });
+  }
+
+  function getSectionImageIds(sectionId) {
+    var section = Table.get("lesson_sections", sectionId);
+    return (section && section.image_ids) || [];
+  }
+
+  function addImageToSection(sectionId, file) {
+    var id = uid("img");
+    return openImageDb()
+      .then(function (db) {
+        if (!db) return null;
+        return new Promise(function (resolve) {
+          var tx = db.transaction(IMAGE_STORE, "readwrite");
+          tx.objectStore(IMAGE_STORE).put({ id: id, section_id: sectionId, blob: file, type: file.type, created_at: nowIso() });
+          tx.oncomplete = function () {
+            resolve(id);
+          };
+          tx.onerror = function () {
+            resolve(null);
+          };
+        });
+      })
+      .then(function (storedId) {
+        if (!storedId) return null;
+        Table.update("lesson_sections", sectionId, { image_ids: getSectionImageIds(sectionId).concat([storedId]) });
+        return storedId;
+      });
+  }
+
+  function deleteImage(imageId) {
+    delete imageUrlCache[imageId];
+    return openImageDb().then(function (db) {
+      if (!db) return;
+      return new Promise(function (resolve) {
+        var tx = db.transaction(IMAGE_STORE, "readwrite");
+        tx.objectStore(IMAGE_STORE).delete(imageId);
+        tx.oncomplete = function () {
+          resolve();
+        };
+        tx.onerror = function () {
+          resolve();
+        };
+      });
+    });
+  }
+
+  function removeImageFromSection(sectionId, imageId) {
+    return deleteImage(imageId).then(function () {
+      Table.update("lesson_sections", sectionId, {
+        image_ids: getSectionImageIds(sectionId).filter(function (id) {
+          return id !== imageId;
+        })
+      });
+    });
+  }
+
+  function deleteImagesForSection(sectionId) {
+    return Promise.all(getSectionImageIds(sectionId).map(deleteImage));
+  }
+
+  function getImageObjectUrl(imageId) {
+    if (imageUrlCache[imageId]) return Promise.resolve(imageUrlCache[imageId]);
+    return openImageDb().then(function (db) {
+      if (!db) return null;
+      return new Promise(function (resolve) {
+        var tx = db.transaction(IMAGE_STORE, "readonly");
+        var req = tx.objectStore(IMAGE_STORE).get(imageId);
+        req.onsuccess = function () {
+          if (!req.result) {
+            resolve(null);
+            return;
+          }
+          var url = URL.createObjectURL(req.result.blob);
+          imageUrlCache[imageId] = url;
+          resolve(url);
+        };
+        req.onerror = function () {
+          resolve(null);
+        };
+      });
+    });
   }
 
   /* Deletes cascade downward through the same hierarchy the seed data
@@ -365,6 +483,7 @@
      at a row that no longer exists. */
 
   function deleteSection(sectionId) {
+    deleteImagesForSection(sectionId);
     Table.remove("lesson_sections", sectionId);
     Table.list("recall_notes", function (n) {
       return n.section_id === sectionId;
@@ -668,6 +787,10 @@
     addSection: addSection,
     updateSection: updateSection,
     deleteSection: deleteSection,
+    getSectionImageIds: getSectionImageIds,
+    addImageToSection: addImageToSection,
+    removeImageFromSection: removeImageFromSection,
+    getImageObjectUrl: getImageObjectUrl,
     deleteLesson: deleteLesson,
     deleteTopic: deleteTopic,
     deleteSubject: deleteSubject,
