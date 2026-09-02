@@ -16,7 +16,7 @@
 
 importScripts("reminders-shared.js");
 
-var CACHE_NAME = "active-recall-v2";
+var CACHE_NAME = "active-recall-v3";
 var APP_SHELL = [
   "./",
   "./index.html",

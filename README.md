@@ -51,9 +51,23 @@ seed data uses. A new lesson opens straight into a content editor
 (`#/learn/lesson/:id/edit`) for writing its sections; the pencil icon on
 any lesson row in the Lessons list returns to that editor later. Nothing
 distinguishes "seed" rows from "user" rows in the schema — both are just
-`lessons`/`lesson_sections` records — so this doesn't yet support
-editing or deleting the seed lessons themselves, only adding new ones and
-editing what you add.
+`lessons`/`lesson_sections` records — so full CRUD (add, edit, delete)
+works the same regardless of whether a subject/topic/lesson/section came
+from the seed data or was added later; deleting one cascades down through
+everything under it (its topics/lessons/sections and any recall_notes,
+active_recall_sessions and lesson_progress rows that reference them).
+
+Any section can also carry as many images as you like (the "+ Add
+Images" control on each section in the content editor accepts multiple
+files at once, added or removed with no cap). Because localStorage is a
+small string-only budget shared by every other table in `data.js`, image
+bytes live in their own IndexedDB database instead — a section's
+`lesson_sections` row only keeps an ordered `image_ids` array, and the
+actual `Blob`s are looked up by id and turned into object URLs for
+display. Images show during reading and in the "Original Material" panel
+(compare/history) — never during the hidden/recall phase, since seeing
+them would defeat the point — and deleting a section (or anything above
+it) removes its stored images along with everything else.
 
 ## Study reminders (installed-app notifications)
 
