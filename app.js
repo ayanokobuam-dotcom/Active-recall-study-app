@@ -59,20 +59,8 @@
     return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + "</svg>";
   }
 
-  /* App logo mark: a minimal faceted obsidian shard, matches favicon.svg */
-  var LOGO_MARK_SVG =
-    '<svg class="app-logo" viewBox="0 0 128 128" aria-hidden="true">' +
-    '<rect x="0" y="0" width="128" height="128" rx="28" fill="#4b6a55"/>' +
-    '<polygon points="64,18 90,46 78,110 64,122 50,110 38,46" fill="#1b1a17"/>' +
-    '<polygon points="64,18 90,46 78,110 64,122 64,64" fill="#000000" opacity="0.18"/>' +
-    '<polygon points="64,18 46,40 56,30" fill="#f4f8f5" opacity="0.22"/>' +
-    '<g stroke="#f4f8f5" stroke-width="1.4" stroke-linecap="round" opacity="0.28">' +
-    '<line x1="64" y1="18" x2="64" y2="122"/>' +
-    '<line x1="38" y1="46" x2="64" y2="70"/>' +
-    '<line x1="90" y1="46" x2="64" y2="70"/>' +
-    '<line x1="50" y1="110" x2="64" y2="70"/>' +
-    '<line x1="78" y1="110" x2="64" y2="70"/>' +
-    "</g></svg>";
+  /* App logo mark, matches the favicon/app icon set in icons/ */
+  var LOGO_MARK_HTML = '<img class="app-logo" src="icons/favicon-48.png" alt="" width="24" height="24">';
 
   function toast(message) {
     var node = document.createElement("div");
@@ -443,7 +431,7 @@
     return (
       '<div class="app-shell">' +
       '<header class="app-header">' +
-      '<div class="app-header-left"><span class="app-brand">' + LOGO_MARK_SVG + " Active Recall</span></div>" +
+      '<div class="app-header-left"><span class="app-brand">' + LOGO_MARK_HTML + " Active Recall</span></div>" +
       '<nav class="app-nav" aria-label="Primary">' +
       navItem("home", "Home", "home", "#/home") +
       navItem("learn", "Learn", "learn", "#/learn") +

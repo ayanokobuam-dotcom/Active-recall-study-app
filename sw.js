@@ -16,7 +16,7 @@
 
 importScripts("reminders-shared.js");
 
-var CACHE_NAME = "active-recall-v1";
+var CACHE_NAME = "active-recall-v2";
 var APP_SHELL = [
   "./",
   "./index.html",
@@ -25,12 +25,12 @@ var APP_SHELL = [
   "./data.js",
   "./reminders-shared.js",
   "./manifest.json",
-  "./favicon.svg",
   "./icons/favicon-32.png",
   "./icons/favicon-48.png",
   "./icons/favicon-192.png",
   "./icons/favicon-512.png",
-  "./icons/apple-touch-icon.png"
+  "./icons/apple-touch-icon.png",
+  "./icons/maskable-512.png"
 ];
 
 self.addEventListener("install", function (event) {
