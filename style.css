@@ -295,6 +295,9 @@ a{color:inherit;}
 .btn-ghost{border-color:transparent;background:transparent;}
 .btn-ghost:hover{background:var(--surface-muted);}
 
+.btn-danger{background:transparent;border-color:var(--error);color:var(--error);}
+.btn-danger:hover{background:rgba(180,72,63,0.1);}
+
 .btn-block{width:100%;}
 .btn-sm{padding:8px 14px;font-size:13px;}
 
@@ -368,7 +371,10 @@ a{color:inherit;}
 .pick-row-wrap .pick-row{flex:1;}
 .pick-row-edit{align-self:center;flex:none;}
 
-/* page title + primary action, side by side */
+.icon-btn-danger{color:var(--error);border-color:rgba(180,72,63,0.35);}
+.icon-btn-danger:hover{background:rgba(180,72,63,0.1);color:var(--error);}
+
+/* page title + one or more actions, side by side */
 .page-header-row{
   display:flex;
   align-items:center;
@@ -377,6 +383,7 @@ a{color:inherit;}
   flex-wrap:wrap;
 }
 .page-header-row .page-title{margin:0;}
+.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 
 /* ---------------------------------------------------------------------- */
 /* Form fields — used by the "add your own" forms and modals             */

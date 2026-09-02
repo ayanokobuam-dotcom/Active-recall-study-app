@@ -95,6 +95,16 @@
         }
       }
       return null;
+    },
+    remove: function (name, id) {
+      var rows = table(name);
+      var index = rows.findIndex(function (r) {
+        return r.id === id;
+      });
+      if (index === -1) return false;
+      rows.splice(index, 1);
+      persist(name);
+      return true;
     }
   };
 
@@ -346,6 +356,54 @@
 
   function updateSection(sectionId, title, content) {
     return Table.update("lesson_sections", sectionId, { title: title, content: content });
+  }
+
+  /* Deletes cascade downward through the same hierarchy the seed data
+     uses (subject -> topic -> lesson -> section), and clean up every
+     table that references the thing being removed (recall_notes,
+     active_recall_sessions, lesson_progress) so nothing is left pointing
+     at a row that no longer exists. */
+
+  function deleteSection(sectionId) {
+    Table.remove("lesson_sections", sectionId);
+    Table.list("recall_notes", function (n) {
+      return n.section_id === sectionId;
+    }).forEach(function (n) {
+      Table.remove("recall_notes", n.id);
+    });
+    Table.list("active_recall_sessions", function (s) {
+      return s.section_id === sectionId;
+    }).forEach(function (s) {
+      Table.remove("active_recall_sessions", s.id);
+    });
+    syncReminderMirror();
+  }
+
+  function deleteLesson(lessonId) {
+    getLessonSections(lessonId).forEach(function (s) {
+      deleteSection(s.id);
+    });
+    Table.remove("lessons", lessonId);
+    Table.remove("lesson_progress", lessonId);
+  }
+
+  function deleteTopic(topicId) {
+    getLessonsForTopic(topicId).forEach(function (l) {
+      deleteLesson(l.id);
+    });
+    Table.list("subtopics", function (st) {
+      return st.topic_id === topicId;
+    }).forEach(function (st) {
+      Table.remove("subtopics", st.id);
+    });
+    Table.remove("topics", topicId);
+  }
+
+  function deleteSubject(subjectId) {
+    getTopicsForSubject(subjectId).forEach(function (t) {
+      deleteTopic(t.id);
+    });
+    Table.remove("subjects", subjectId);
   }
 
   /* ----------------------------------------------------------------- */
@@ -609,6 +667,10 @@
     addLesson: addLesson,
     addSection: addSection,
     updateSection: updateSection,
+    deleteSection: deleteSection,
+    deleteLesson: deleteLesson,
+    deleteTopic: deleteTopic,
+    deleteSubject: deleteSubject,
     syncReminderMirror: syncReminderMirror,
     getLessonSections: getLessonSections,
     getLessonsForTopic: getLessonsForTopic,
