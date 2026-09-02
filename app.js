@@ -51,7 +51,8 @@
     close: '<path d="M6 6l12 12M18 6 6 18"/>',
     back: '<path d="m11 5-7 7 7 7"/><path d="M4 12h16"/>',
     theme: '<path d="M12 4v1M12 19v1M4 12H3M21 12h-1M6.3 6.3l-.7-.7M18.4 18.4l-.7-.7M6.3 17.7l-.7.7M18.4 5.6l-.7.7"/><circle cx="12" cy="12" r="4.5"/>',
-    edit: '<path d="M4 20l1-4L15.5 5.5a1.7 1.7 0 0 1 2.4 0l.6.6a1.7 1.7 0 0 1 0 2.4L8 19l-4 1z"/><path d="M14 7l3 3"/>'
+    edit: '<path d="M4 20l1-4L15.5 5.5a1.7 1.7 0 0 1 2.4 0l.6.6a1.7 1.7 0 0 1 0 2.4L8 19l-4 1z"/><path d="M14 7l3 3"/>',
+    trash: '<path d="M5 7h14"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M7 7l1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6M14 11v6"/>'
   };
 
   function icon(name) {
@@ -194,6 +195,26 @@
           close();
           toast("Lesson added — now write its content");
           navigate("#/learn/lesson/" + lesson.id + "/edit");
+        });
+      }
+    );
+  }
+
+  function confirmDelete(message, onConfirm) {
+    openModal(
+      '<h2 class="section-title" style="margin-bottom:12px">Delete?</h2>' +
+        '<p class="text-muted" style="margin-bottom:4px">' +
+        message +
+        "</p>" +
+        '<div class="modal-actions">' +
+        '<button type="button" class="btn btn-ghost" id="modalCancel">Cancel</button>' +
+        '<button type="button" class="btn btn-danger" id="modalConfirmDelete">Delete</button>' +
+        "</div>",
+      function (overlay, close) {
+        overlay.querySelector("#modalCancel").addEventListener("click", close);
+        overlay.querySelector("#modalConfirmDelete").addEventListener("click", function () {
+          close();
+          onConfirm();
         });
       }
     );
@@ -686,6 +707,7 @@
       .map(function (subject) {
         var topicCount = Data.getTopicsForSubject(subject.id).length;
         return (
+          '<div class="pick-row-wrap">' +
           '<a class="pick-row" href="#/learn/subject/' +
           subject.id +
           '">' +
@@ -698,7 +720,14 @@
           "</div></div>" +
           '<span class="pick-row-chevron">' +
           icon("chevron") +
-          "</span></a>"
+          "</span></a>" +
+          '<button type="button" class="icon-btn icon-btn-danger delete-subject-btn" data-subject-id="' +
+          subject.id +
+          '" data-subject-name="' +
+          escapeHtml(subject.name) +
+          '" title="Delete subject" aria-label="Delete subject">' +
+          icon("trash") +
+          "</button></div>"
         );
       })
       .join("");
@@ -713,6 +742,20 @@
         "</div></div>",
       mount: function () {
         document.getElementById("addSubjectBtn").addEventListener("click", openAddSubjectModal);
+        root.querySelectorAll(".delete-subject-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var id = btn.dataset.subjectId;
+            var name = escapeHtml(btn.dataset.subjectName);
+            confirmDelete(
+              'Delete "' + name + '" and everything in it &mdash; topics, lessons and your saved recalls for it. This can’t be undone.',
+              function () {
+                Data.deleteSubject(id);
+                toast("Subject deleted");
+                navigate("#/learn");
+              }
+            );
+          });
+        });
       }
     };
   };
@@ -724,6 +767,7 @@
       .map(function (topic) {
         var lessonCount = Data.getLessonsForTopic(topic.id).length;
         return (
+          '<div class="pick-row-wrap">' +
           '<a class="pick-row" href="#/learn/topic/' +
           topic.id +
           '">' +
@@ -736,7 +780,14 @@
           "</div></div>" +
           '<span class="pick-row-chevron">' +
           icon("chevron") +
-          "</span></a>"
+          "</span></a>" +
+          '<button type="button" class="icon-btn icon-btn-danger delete-topic-btn" data-topic-id="' +
+          topic.id +
+          '" data-topic-name="' +
+          escapeHtml(topic.name) +
+          '" title="Delete topic" aria-label="Delete topic">' +
+          icon("trash") +
+          "</button></div>"
         );
       })
       .join("");
@@ -749,13 +800,41 @@
         "</strong></div>" +
         '<div class="page-header-row"><h1 class="page-title">' +
         escapeHtml(subject ? subject.name : "") +
-        '</h1><button type="button" class="btn btn-primary btn-sm" id="addTopicBtn">+ Add Topic</button></div>' +
+        '</h1><div class="header-actions">' +
+        '<button type="button" class="btn btn-danger btn-sm" id="deleteSubjectBtn">Delete Subject</button>' +
+        '<button type="button" class="btn btn-primary btn-sm" id="addTopicBtn">+ Add Topic</button>' +
+        "</div></div>" +
         '<div class="pick-list">' +
         (rows || '<p class="empty-note">No topics yet.</p>') +
         "</div></div>",
       mount: function () {
         document.getElementById("addTopicBtn").addEventListener("click", function () {
           openAddTopicModal(subjectId);
+        });
+        document.getElementById("deleteSubjectBtn").addEventListener("click", function () {
+          var name = escapeHtml(subject ? subject.name : "this subject");
+          confirmDelete(
+            'Delete "' + name + '" and everything in it &mdash; topics, lessons and your saved recalls for it. This can’t be undone.',
+            function () {
+              Data.deleteSubject(subjectId);
+              toast("Subject deleted");
+              navigate("#/learn");
+            }
+          );
+        });
+        root.querySelectorAll(".delete-topic-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var id = btn.dataset.topicId;
+            var name = escapeHtml(btn.dataset.topicName);
+            confirmDelete(
+              'Delete "' + name + '" and everything in it &mdash; lessons and your saved recalls for it. This can’t be undone.',
+              function () {
+                Data.deleteTopic(id);
+                toast("Topic deleted");
+                navigate("#/learn/subject/" + subjectId);
+              }
+            );
+          });
         });
       }
     };
@@ -799,7 +878,14 @@
           lesson.id +
           '/edit" title="Edit content" aria-label="Edit content">' +
           icon("edit") +
-          "</a></div>"
+          "</a>" +
+          '<button type="button" class="icon-btn icon-btn-danger delete-lesson-btn" data-lesson-id="' +
+          lesson.id +
+          '" data-lesson-title="' +
+          escapeHtml(lesson.title) +
+          '" title="Delete lesson" aria-label="Delete lesson">' +
+          icon("trash") +
+          "</button></div>"
         );
       })
       .join("");
@@ -817,13 +903,41 @@
         "</strong></div>" +
         '<div class="page-header-row"><h1 class="page-title">' +
         escapeHtml(topic ? topic.name : "") +
-        '</h1><button type="button" class="btn btn-primary btn-sm" id="addLessonBtn">+ Add Lesson</button></div>' +
+        '</h1><div class="header-actions">' +
+        '<button type="button" class="btn btn-danger btn-sm" id="deleteTopicBtn">Delete Topic</button>' +
+        '<button type="button" class="btn btn-primary btn-sm" id="addLessonBtn">+ Add Lesson</button>' +
+        "</div></div>" +
         '<div class="pick-list">' +
         (rows || '<p class="empty-note">No lessons yet.</p>') +
         "</div></div>",
       mount: function () {
         document.getElementById("addLessonBtn").addEventListener("click", function () {
           openAddLessonModal(topicId);
+        });
+        document.getElementById("deleteTopicBtn").addEventListener("click", function () {
+          var name = escapeHtml(topic ? topic.name : "this topic");
+          confirmDelete(
+            'Delete "' + name + '" and everything in it &mdash; lessons and your saved recalls for it. This can’t be undone.',
+            function () {
+              Data.deleteTopic(topicId);
+              toast("Topic deleted");
+              navigate("#/learn/subject/" + (subject ? subject.id : ""));
+            }
+          );
+        });
+        root.querySelectorAll(".delete-lesson-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var id = btn.dataset.lessonId;
+            var name = escapeHtml(btn.dataset.lessonTitle);
+            confirmDelete(
+              'Delete "' + name + '" and your saved recalls for it. This can’t be undone.',
+              function () {
+                Data.deleteLesson(id);
+                toast("Lesson deleted");
+                navigate("#/learn/topic/" + topicId);
+              }
+            );
+          });
         });
       }
     };
@@ -849,9 +963,13 @@
         '">' +
         '<div class="review-card-head"><span class="eyebrow">Section ' +
         (index + 1) +
-        '</span><button type="button" class="btn btn-ghost btn-sm edit-section-btn" data-section-id="' +
+        '</span><div class="header-actions">' +
+        '<button type="button" class="btn btn-ghost btn-sm edit-section-btn" data-section-id="' +
         section.id +
-        '">Edit</button></div>' +
+        '">Edit</button>' +
+        '<button type="button" class="btn btn-danger btn-sm delete-section-btn" data-section-id="' +
+        section.id +
+        '">Delete</button></div></div>' +
         '<div class="pick-row-title">' +
         escapeHtml(section.title) +
         "</div>" +
@@ -871,9 +989,9 @@
       "</a><span>&rsaquo;</span><strong>" +
       escapeHtml(lesson.title) +
       "</strong></div>" +
-      '<h1 class="page-title">' +
+      '<div class="page-header-row"><h1 class="page-title">' +
       escapeHtml(lesson.title) +
-      "</h1>" +
+      '</h1><button type="button" class="btn btn-danger btn-sm" id="deleteLessonBtn">Delete Lesson</button></div>' +
       '<p class="text-muted">Write the sections readers will study, hide, then recall from memory.</p>' +
       '<div class="stack-sm" id="sectionsList">' +
       (sections.map(sectionCardHtml).join("") || '<p class="empty-note">No sections yet &mdash; add the first one below.</p>') +
@@ -904,9 +1022,29 @@
           navigate("#/learn/lesson/" + lessonId + "/edit");
         });
 
+        document.getElementById("deleteLessonBtn").addEventListener("click", function () {
+          var name = escapeHtml(lesson.title);
+          confirmDelete('Delete "' + name + '" and your saved recalls for it. This can’t be undone.', function () {
+            Data.deleteLesson(lessonId);
+            toast("Lesson deleted");
+            navigate("#/learn/topic/" + lesson.topic_id);
+          });
+        });
+
+        root.querySelectorAll(".delete-section-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var id = btn.dataset.sectionId;
+            confirmDelete("Delete this section and your saved recalls for it. This can’t be undone.", function () {
+              Data.deleteSection(id);
+              toast("Section deleted");
+              navigate("#/learn/lesson/" + lessonId + "/edit");
+            });
+          });
+        });
+
         root.querySelectorAll(".edit-section-btn").forEach(function (btn) {
           btn.addEventListener("click", function () {
-            var card = btn.closest("[data-section-id]");
+            var card = btn.closest(".surface-card");
             var section = Data.Table.get("lesson_sections", btn.dataset.sectionId);
             if (!section) return;
             card.innerHTML =
