@@ -1074,6 +1074,7 @@
       '<form id="addSectionForm" class="stack-sm">' +
       '<label class="field"><span>Section title</span><input type="text" id="f_sectionTitle" placeholder="e.g. Introduction" required></label>' +
       '<label class="field"><span>Content</span><textarea id="f_sectionContent" class="recall-textarea" style="min-height:160px" placeholder="Write the material readers will read, then try to recall from memory…" required></textarea></label>' +
+      '<label class="field"><span>Images (optional, any number)</span><input type="file" id="f_sectionImages" accept="image/*" multiple></label>' +
       '<button type="submit" class="btn btn-primary">Add Section</button>' +
       "</form></div>" +
       '<a class="btn btn-ghost" href="#/learn/topic/' +
@@ -1090,9 +1091,19 @@
           var title = document.getElementById("f_sectionTitle").value.trim();
           var content = document.getElementById("f_sectionContent").value.trim();
           if (!title || !content) return;
-          Data.addSection(lessonId, title, content);
-          toast("Section added");
-          navigate("#/learn/lesson/" + lessonId + "/edit");
+          var section = Data.addSection(lessonId, title, content);
+          var files = Array.prototype.slice.call(document.getElementById("f_sectionImages").files || []);
+          var imagesAdded = files.length
+            ? Promise.all(
+                files.map(function (file) {
+                  return Data.addImageToSection(section.id, file);
+                })
+              )
+            : Promise.resolve();
+          imagesAdded.then(function () {
+            toast(files.length ? "Section added with " + files.length + (files.length === 1 ? " image" : " images") : "Section added");
+            navigate("#/learn/lesson/" + lessonId + "/edit");
+          });
         });
 
         document.getElementById("deleteLessonBtn").addEventListener("click", function () {
