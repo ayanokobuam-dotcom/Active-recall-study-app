@@ -911,6 +911,14 @@
         }) || sections[0];
         var isDraft = sections.length === 0;
         var readHref = isDraft ? "#/learn/lesson/" + lesson.id + "/edit" : "#/lesson/" + lesson.id + "/section/" + next.id;
+        var subParts = [];
+        if (lesson.description) subParts.push(escapeHtml(lesson.description));
+        if (isDraft) {
+          subParts.push("Draft &mdash; no content yet, add a section to start");
+        } else {
+          subParts.push(lesson.estimated_minutes + " min");
+          if (read.length) subParts.push(pct + "% complete");
+        }
         return (
           '<div class="pick-row-wrap">' +
           '<a class="pick-row" href="' +
@@ -920,13 +928,7 @@
           escapeHtml(lesson.title) +
           "</div>" +
           '<div class="pick-row-sub">' +
-          (isDraft
-            ? "Draft &mdash; no content yet, add a section to start"
-            : escapeHtml(lesson.description) +
-              " &middot; " +
-              lesson.estimated_minutes +
-              " min" +
-              (read.length ? " &middot; " + pct + "% complete" : "")) +
+          subParts.join(" &middot; ") +
           "</div></div>" +
           '<span class="pick-row-chevron">' +
           icon("chevron") +
@@ -1065,6 +1067,7 @@
       '<div class="page-header-row"><h1 class="page-title">' +
       escapeHtml(lesson.title) +
       '</h1><button type="button" class="btn btn-danger btn-sm" id="deleteLessonBtn">Delete Lesson</button></div>' +
+      (lesson.description ? '<p class="text-muted">' + escapeHtml(lesson.description) + "</p>" : "") +
       '<p class="text-muted">Write the sections readers will study, hide, then recall from memory.</p>' +
       '<div class="stack-sm" id="sectionsList">' +
       (sections.map(sectionCardHtml).join("") || '<p class="empty-note">No sections yet &mdash; add the first one below.</p>') +
